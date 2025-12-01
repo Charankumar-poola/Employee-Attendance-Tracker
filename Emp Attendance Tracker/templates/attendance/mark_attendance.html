@@ -1,0 +1,127 @@
+{% extends "attendance/base.html" %}
+{% load static %}
+
+{% block title %}Mark Attendance — Attendance System{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="row justify-content-center">
+  <div class="col-lg-6 col-md-8">
+    <div class="text-center mb-5">
+      <h1 class="display-4 fw-bold text-success">Mark Attendance</h1>
+      <p class="lead text-muted">Record your clock-in and clock-out times in real-time</p>
+    </div>
+
+    <div class="card shadow">
+      <div class="card-body text-center">
+        {% if user.is_authenticated %}
+          {% if user.employee %}
+            <div class="mb-4">
+              <h5 class="card-title">Employee Details</h5>
+              <p class="mb-2"><strong>Employee ID:</strong> {{ user.employee.employee_id }}</p>
+              <p class="mb-2"><strong>Name:</strong> {{ user.employee.user.get_full_name|default:user.employee.user.username }}</p>
+              <p class="mb-4"><strong>Department:</strong> {{ user.employee.department|default:"N/A" }}</p>
+            </div>
+
+            <div class="d-flex justify-content-center gap-3 mb-4">
+              <button id="clock-in-btn" class="btn btn-success btn-lg" onclick="markAttendance('IN')">
+                <i class="bi bi-play-circle-fill me-2"></i>Clock In
+              </button>
+              <button id="clock-out-btn" class="btn btn-danger btn-lg" onclick="markAttendance('OUT')">
+                <i class="bi bi-stop-circle-fill me-2"></i>Clock Out
+              </button>
+            </div>
+
+            <div id="attendance-status" class="mt-4" style="display: none;"></div>
+
+            <div class="mt-4">
+              <a href="{% url 'attendance:index' %}" class="btn btn-outline-primary">
+                <i class="bi bi-house-door me-2"></i>Back to Home
+              </a>
+            </div>
+          {% else %}
+            <div class="alert alert-warning">
+              <h5>Your account is not linked to an employee record</h5>
+              <p>Please contact your administrator to link your account.</p>
+              <a href="{% url 'attendance:index' %}" class="btn btn-primary">Back to Home</a>
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="alert alert-info">
+            <h5>Please login to mark your attendance</h5>
+            <a href="{% url 'admin:login' %}" class="btn btn-primary">Login</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Real-time attendance marking function
+async function markAttendance(action) {
+  const statusDiv = document.getElementById('attendance-status');
+  const clockInBtn = document.getElementById('clock-in-btn');
+  const clockOutBtn = document.getElementById('clock-out-btn');
+
+  // Disable buttons during request
+  clockInBtn.disabled = true;
+  clockOutBtn.disabled = true;
+
+  try {
+    const response = await fetch('{% url "attendance:mark" %}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+      },
+      body: new URLSearchParams({
+        'employee_id': '{{ user.employee.employee_id }}',
+        'action': action
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.status === 'ok') {
+      const timestamp = new Date(data.clock_in || data.clock_out).toLocaleString();
+      const actionText = action === 'IN' ? 'Clocked In' : 'Clocked Out';
+
+      statusDiv.innerHTML = `
+        <div class="alert alert-success">
+          <strong>${actionText} Successfully!</strong><br>
+          <strong>Time:</strong> ${timestamp}<br>
+          <strong>Worked Seconds:</strong> ${data.worked_seconds}
+        </div>
+      `;
+      statusDiv.style.display = 'block';
+
+      // Hide status after 10 seconds
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 10000);
+    } else {
+      statusDiv.innerHTML = `
+        <div class="alert alert-danger">
+          <strong>Error:</strong> ${data.message || 'Unknown error occurred'}
+        </div>
+      `;
+      statusDiv.style.display = 'block';
+    }
+  } catch (error) {
+    statusDiv.innerHTML = `
+      <div class="alert alert-danger">
+        <strong>Network Error:</strong> Please check your connection and try again.
+      </div>
+    `;
+    statusDiv.style.display = 'block';
+  } finally {
+    // Re-enable buttons
+    clockInBtn.disabled = false;
+    clockOutBtn.disabled = false;
+  }
+}
+</script>
+{% endblock %}

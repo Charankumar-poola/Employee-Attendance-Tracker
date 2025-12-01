@@ -1,0 +1,217 @@
+{% extends "attendance/base.html" %}
+{% load static %}
+
+{% block title %}Home — Attendance System{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-md-10">
+    <div class="text-center mb-5">
+      <h1 class="display-4 fw-bold text-primary">Attendance Management System</h1>
+      <p class="lead text-muted">Efficiently manage employee attendance, leave requests, and reports</p>
+    </div>
+
+    <div class="row g-4">
+      {% if user.is_staff %}
+        <!-- Administrator View -->
+        <!-- Register Employee Card -->
+        <div class="col-md-6">
+          <div class="card h-100 shadow-sm hover-card">
+            <div class="card-body text-center">
+              <div class="mb-3">
+                <i class="bi bi-person-plus-fill text-primary" style="font-size: 3rem;"></i>
+              </div>
+              <h5 class="card-title">Register Employee</h5>
+              <p class="card-text text-muted">Add new employees to the system with their details and credentials.</p>
+              <a href="{% url 'attendance:register' %}" class="btn btn-primary">Register Now</a>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Mark Attendance Card (for both employees and admins) -->
+      <div class="col-md-6">
+        <div class="card h-100 shadow-sm hover-card">
+          <div class="card-body text-center">
+            <div class="mb-3">
+              <i class="bi bi-calendar-check-fill text-success" style="font-size: 3rem;"></i>
+            </div>
+            <h5 class="card-title">Mark Attendance</h5>
+            <p class="card-text text-muted">Record your clock-in and clock-out times in real-time.</p>
+            <a href="{% url 'attendance:mark_attendance_page' %}" class="btn btn-success">Mark Attendance</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Reports Card (for both employees and admins) -->
+      <div class="col-md-6">
+        <div class="card h-100 shadow-sm hover-card">
+          <div class="card-body text-center">
+            <div class="mb-3">
+              <i class="bi bi-graph-up-fill text-warning" style="font-size: 3rem;"></i>
+            </div>
+            <h5 class="card-title">Monthly Reports</h5>
+            <p class="card-text text-muted">View detailed attendance reports and export data for analysis.</p>
+            <a href="{% url 'attendance:monthly_report' %}" class="btn btn-warning">View Reports</a>
+          </div>
+        </div>
+      </div>
+
+      {% if user.is_staff %}
+        <!-- User Management Card (only for administrators) -->
+        <div class="col-md-6">
+          <div class="card h-100 shadow-sm hover-card">
+            <div class="card-body text-center">
+              <div class="mb-3">
+                <i class="bi bi-people-fill text-info" style="font-size: 3rem;"></i>
+              </div>
+              <h5 class="card-title">User Management</h5>
+              <p class="card-text text-muted">Manage registered employees and their information.</p>
+              <a href="{% url 'attendance:user_list' %}" class="btn btn-info">Manage Users</a>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Quick Stats Section -->
+    <div class="row mt-5">
+      <div class="col-12">
+        <div class="card bg-light">
+          <div class="card-body text-center">
+            <h5 class="card-title">Quick Actions</h5>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+              {% if user.is_authenticated %}
+                {% if user.employee %}
+                  <button id="clock-in-btn" class="btn btn-success" onclick="markAttendance('IN')">
+                    <i class="bi bi-play-circle-fill"></i> Clock In
+                  </button>
+                  <button id="clock-out-btn" class="btn btn-danger" onclick="markAttendance('OUT')">
+                    <i class="bi bi-stop-circle-fill"></i> Clock Out
+                  </button>
+                {% endif %}
+                {% if user.is_staff %}
+                  <a href="{% url 'admin:index' %}" class="btn btn-outline-dark">Admin Panel</a>
+                {% endif %}
+                <a href="{% url 'attendance:logout' %}" class="btn btn-outline-danger">Logout</a>
+              {% else %}
+                <a href="{% url 'admin:login' %}" class="btn btn-outline-primary">Login</a>
+              {% endif %}
+            </div>
+            <div id="attendance-status" class="mt-3" style="display: none;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Add hover effect for cards
+document.addEventListener('DOMContentLoaded', function() {
+  const cards = document.querySelectorAll('.hover-card');
+  cards.forEach(card => {
+    card.addEventListener('mouseenter', function() {
+      this.style.transform = 'translateY(-5px)';
+      this.style.transition = 'transform 0.3s ease';
+    });
+    card.addEventListener('mouseleave', function() {
+      this.style.transform = 'translateY(0)';
+    });
+  });
+});
+
+// Real-time attendance marking function
+async function markAttendance(action) {
+  // Get all button and status elements
+  const statusDivs = [
+    document.getElementById('attendance-status'),
+    document.getElementById('card-attendance-status')
+  ].filter(div => div); // Filter out null elements
+
+  const clockInBtns = [
+    document.getElementById('clock-in-btn'),
+    document.getElementById('card-clock-in-btn')
+  ].filter(btn => btn);
+
+  const clockOutBtns = [
+    document.getElementById('clock-out-btn'),
+    document.getElementById('card-clock-out-btn')
+  ].filter(btn => btn);
+
+  // Disable all buttons during request
+  clockInBtns.forEach(btn => btn.disabled = true);
+  clockOutBtns.forEach(btn => btn.disabled = true);
+
+  try {
+    const response = await fetch('{% url "attendance:mark" %}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+      },
+      body: new URLSearchParams({
+        'employee_id': '{{ user.employee.employee_id }}',
+        'action': action
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.status === 'ok') {
+      const timestamp = new Date(data.clock_in || data.clock_out).toLocaleString();
+      const actionText = action === 'IN' ? 'Clocked In' : 'Clocked Out';
+
+      const successMessage = `
+        <div class="alert alert-success">
+          <strong>${actionText} Successfully!</strong><br>
+          Time: ${timestamp}<br>
+          Worked Seconds: ${data.worked_seconds}
+        </div>
+      `;
+
+      // Show success message in all status divs
+      statusDivs.forEach(div => {
+        div.innerHTML = successMessage;
+        div.style.display = 'block';
+        // Hide status after 5 seconds
+        setTimeout(() => {
+          div.style.display = 'none';
+        }, 5000);
+      });
+    } else {
+      const errorMessage = `
+        <div class="alert alert-danger">
+          <strong>Error:</strong> ${data.message || 'Unknown error occurred'}
+        </div>
+      `;
+
+      // Show error message in all status divs
+      statusDivs.forEach(div => {
+        div.innerHTML = errorMessage;
+        div.style.display = 'block';
+      });
+    }
+  } catch (error) {
+    const networkErrorMessage = `
+      <div class="alert alert-danger">
+        <strong>Network Error:</strong> Please check your connection and try again.
+      </div>
+    `;
+
+    // Show network error in all status divs
+    statusDivs.forEach(div => {
+      div.innerHTML = networkErrorMessage;
+      div.style.display = 'block';
+    });
+  } finally {
+    // Re-enable all buttons
+    clockInBtns.forEach(btn => btn.disabled = false);
+    clockOutBtns.forEach(btn => btn.disabled = false);
+  }
+}
+</script>
+{% endblock %}
