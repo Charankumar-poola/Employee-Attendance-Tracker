@@ -1,0 +1,19 @@
+{% extends "attendance/base.html" %}
+{% block content %}
+  <h2>My Leaves</h2>
+  <table class="table">
+    <thead><tr><th>From</th><th>To</th><th>Status</th><th>Applied</th></tr></thead>
+    <tbody>
+      {% for leave in leaves %}
+        <tr>
+          <td>{{ leave.start_date|date:"d M Y" }}</td>
+          <td>{{ leave.end_date|date:"d M Y" }}</td>
+          <td>{{ leave.get_status_display }}</td>
+          <td>{{ leave.applied_at|date:"d M Y H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">No leaves</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

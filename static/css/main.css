@@ -1,0 +1,4 @@
+/* small visual polish */
+.card-header small { display: block; opacity: 0.9; }
+.text-white-50 { opacity: 0.9; }
+.is-invalid { border-color: #dc3545 !important; box-shadow: none !important; }

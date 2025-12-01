@@ -1,0 +1,28 @@
+{% extends "attendance/base.html" %}
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center">
+    <h2>Report for {{ year }}-{{ month }}</h2>
+    <div>
+      <a class="btn btn-outline-secondary" href="?year={{ year }}&month={{ month }}&download=csv">Download CSV</a>
+    </div>
+  </div>
+
+  <table class="table table-striped mt-3">
+    <thead>
+      <tr><th>Employee ID</th><th>Name</th><th>Days Present</th><th>Total Time</th><th>Total Seconds</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.employee_id }}</td>
+          <td>{{ r.name }}</td>
+          <td>{{ r.days_present }}</td>
+          <td>{{ r.total_time }}</td>
+          <td>{{ r.total_seconds }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center">No records found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
